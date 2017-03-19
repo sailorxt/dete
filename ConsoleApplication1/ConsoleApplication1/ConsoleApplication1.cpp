@@ -4,7 +4,8 @@
 #include<math.h> 
 #include <stdio.h> 
 #include <stdlib.h> 
-
+#include <vector>
+using namespace std;
 
 GLfloat light_position1[] = { 0, 28, -20, 1.0 };
 GLfloat model_ambient[] = { 0.05f, 0.05f, 0.05f, 1.0f };
@@ -14,20 +15,20 @@ GLfloat mat_shininess[] = { 5.0 };
 GLfloat mat_ambient[] = { 0.1, 0.1, 0.1, 1 };
 
 GLfloat white_light[] = { 1.0, 1.0, 1.0, 1.0 };
-
 GLfloat light[] = { 1.0, 1.0, 1.0, 1 };
-
 GLfloat light_position0[] = { 0, 28, 20, 1.0 };
-
 
 GLUquadricObj *m_quadratic = gluNewQuadric();				// Create A Pointer To The Quadric Object (Return 0 If No Memory)
 GLfloat bx = 0;
 GLfloat bz = 0;
+GLfloat bx_old = 0;
+GLfloat bz_old = 0;
+vector<GLfloat> vbx, vbz;
 
 GLint WinWidth;
 GLint WinHeight;
 
-//define the eyepoint
+//eye point
 typedef struct EyePoint
 {
 	GLfloat x;
@@ -40,10 +41,9 @@ EyePoint vPoint;
 GLfloat vAngle = 0;
 
 
-//the function about the texture 
 #define BMP_Header_Length 54 
-void grab(void) {
-
+void grab(void) 
+{
 	FILE* pDummyFile; FILE* pWritingFile;
 	GLubyte* pPixelData;
 	GLubyte BMP_Header[BMP_Header_Length];
@@ -78,7 +78,6 @@ void grab(void) {
 	fclose(pDummyFile); fclose(pWritingFile); free(pPixelData);
 }
 
-//power of two 
 int power_of_two(int n)
 {
 	if (n <= 0)
@@ -87,7 +86,6 @@ int power_of_two(int n)
 }
 
 
-//load texture function
 GLuint load_texture(const char* file_name)
 {
 	GLint width, height, total_bytes;
@@ -110,24 +108,27 @@ GLuint load_texture(const char* file_name)
 		while (line_bytes % 4 != 0)
 			++line_bytes;
 		total_bytes = line_bytes * height;
-	} //{
+	}
 
 	pixels = (GLubyte*)malloc(total_bytes);
-	if (pixels == 0){
+	if (pixels == 0)
+	{
 		fclose(pFile);
 		return 0;
-	} //if
+	} 
 
-	if (fread(pixels, total_bytes, 1, pFile) <= 0){
+	if (fread(pixels, total_bytes, 1, pFile) <= 0)
+	{
 		free(pixels);
 		fclose(pFile);
 		return 0;
-	} //if
+	} 
 
 	{
 		GLint max;
 		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max);
-		if (!power_of_two(width) || !power_of_two(height) || width > max || height > max){
+		if (!power_of_two(width) || !power_of_two(height) || width > max || height > max)
+		{
 			const GLint new_width = 256;
 			const GLint new_height = 256;
 			GLint new_line_bytes, new_total_bytes;
@@ -143,22 +144,23 @@ GLuint load_texture(const char* file_name)
 				free(pixels);
 				fclose(pFile);
 				return 0;
-			}//if 
+			}
 
 			gluScaleImage(GL_RGB, width, height, GL_UNSIGNED_BYTE, pixels, new_width, new_height, GL_UNSIGNED_BYTE, new_pixels);
 			free(pixels);
 			pixels = new_pixels;
 			width = new_width;
 			height = new_height;
-		}//if
-	}//{
+		}
+	}
 
 	glGenTextures(1, &texture_ID);
-	if (texture_ID == 0) {
+	if (texture_ID == 0) 
+	{
 		free(pixels);
 		fclose(pFile);
 		return 0;
-	} //if
+	} 
 
 	glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture_ID);
 	glBindTexture(GL_TEXTURE_2D, texture_ID);
@@ -180,10 +182,8 @@ GLuint load_texture(const char* file_name)
 GLuint texblackboard, texwindow, texceiling,
 texdoor, texbackwall, texgaodi, textdesk;
 
-//draw the scene of the classroom
 void drawscence()
 {
-	//draw the ceiling
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texceiling);
 	glColor3f(0.3, 0.3, 0.3);
@@ -308,7 +308,7 @@ void drawscence()
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 
-	//gaodi 
+	//gao di 
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texgaodi);
 
@@ -364,8 +364,6 @@ void drawscence()
 
 }
 
-
-//reshape
 void reshape(int we, int he)
 {
 	WinWidth = we;
@@ -393,12 +391,30 @@ void drawAnchor()
 	glEnd();
 }
 
+
+
+void drawMoving()
+{
+	glLineWidth(5);
+	glColor3f(0, 1, 0);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0, 1, 0);
+	glVertex3f(1, 1, 0);
+	
+	for (int i = 0; i != vbx.size(); i++)
+	{
+		glVertex3f(vbx.at(i), 1, vbz.at(i));
+	}
+	
+	glEnd();
+}
+
 void drawball()
 {
-	//	gluQuadricNormals(m_quadratic, GLU_SMOOTH);			    // Create Smooth Normals 
-	//	gluQuadricTexture(m_quadratic, GL_TRUE);				// Create Texture Coords 
+	gluQuadricNormals(m_quadratic, GLU_SMOOTH);		 // Create Smooth Normals 
+	gluQuadricTexture(m_quadratic, GL_TRUE);		// Create Texture Coords 
 
-	glColor3f(1.1, 0.01, 0.62);
+	glColor3f(1.1, 0.01, 0.02);
 	glPushMatrix();
 	glTranslatef(bx, 0.5, bz);
 	glScalef(0.5, 0.5, 0.5);
@@ -411,12 +427,12 @@ void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//the function of drawing
-	drawscence();
-
 	drawball();
 
 	drawAnchor();
+
+	drawMoving();
+	drawscence();
 
 	glFlush();
 }
@@ -486,12 +502,19 @@ GLvoid OnKeyboard(unsigned char key, int x, int y)
 	case 27:
 		exit(0);
 	}
+
+	if (bx_old != bx || bz_old != bz)
+	{
+		vbx.push_back(bx);
+		vbz.push_back(bz);
+		bx_old = bx;
+		bz_old = bz;
+	}
 	printf("x: %f, y: %f\n", bx * 10, bz * 10);
 	reshape(WinWidth, WinHeight);
 	glutPostRedisplay();
 }
 
-// the action of the special
 GLvoid OnSpecial(int key, int x, int y)
 {
 	switch (key){
@@ -531,21 +554,17 @@ GLvoid OnSpecial(int key, int x, int y)
 	glutPostRedisplay();
 }
 
-//idle function
 GLvoid OnIdle()
 {
 	glutPostRedisplay();
 }
 
-//initial function,initial many parameters including the light and so on
-void initial(){
-
+//initial many parameters including the light and so on
+void initial()
+{
 	glClearColor(0, 0, 0, 0);
-
 	glEnable(GL_TEXTURE_2D);
-
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);//set the mode of the current texture mapping 
-
 
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, model_ambient);
 	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
@@ -573,7 +592,6 @@ void initial(){
 }
 
 
-
 int main(int argc, char* argv[])
 {
 	myEye.x = 0;
@@ -591,7 +609,7 @@ int main(int argc, char* argv[])
 	glutInitDisplayMode(GLUT_RGBA | GLUT_SINGLE);
 	glutInitWindowPosition(400, 0);
 	glutInitWindowSize(800, 600);
-	glutCreateWindow("Demo classroom");
+	glutCreateWindow("Demo Lab Room");
 
 	initial();
 
