@@ -50,6 +50,7 @@ public:
 	void setYRotation(int angle);
 	void setZRotation(int angle);
 	void setEyePoint( Pos3d& point);
+	void resize(int width, int height);
 
 };
 
